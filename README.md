@@ -34,9 +34,9 @@ dup.py [-h] [--min-size MIN_SIZE] [--max-size MAX_SIZE] [--include-empty]
    dup.py /path/to/directory1 /path/to/directory2 /path/to/directory3
    ```
 
-2. Specify a minimum file size to consider and include empty files in the search:
+2. Specify a maximum file size to consider and include empty files in the search:
    ```plaintext
-   dup.py /path/to/directory --min-size 1024 --include-empty
+   dup.py /path/to/directory --max-size 1024 --include-empty
    ```
 
 3. Perform a dry run without making any changes:
