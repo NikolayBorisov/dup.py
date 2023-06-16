@@ -10,12 +10,8 @@ PART_SIZE = 50
 
 def remove(file):
     print(f"{file['path']}", end=" ")
-    removed_files.append(file)
-    if not dry_run and delete_duplicates:
+    if not dry_run:
         os.remove(file["path"])
-        print(f"(removed)")
-    else:
-        print(f"(dry run)")
 
 def create_symlink(original_file, duplicate_file):
     print(f"Creating symbolic link for {duplicate_file['path']} to {original_file['path']}")
@@ -51,14 +47,14 @@ def get_human_readable_size(size):
         unit += 1
     return f"{size:.2f} {units[unit]}"
 
-def get_files(folder, min_size=None, max_size=None, ignore_empty=True):
+def get_files(folder, min_size=None, max_size=None, include_empty=False):
     files = []
     for root, dirs, filenames in os.walk(folder):
         for filename in filenames:
             filepath = os.path.join(root, filename)
             if os.path.exists(filepath):
                 size = os.path.getsize(filepath)
-                if ignore_empty and size == 0:
+                if not include_empty and size == 0:
                     continue
                 if min_size is not None and size < min_size:
                     continue
@@ -76,7 +72,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('folders', nargs='+', help='List of folders')
 parser.add_argument('--minsize', type=int, help='Minimum file size')
 parser.add_argument('--maxsize', type=int, help='Maximum file size')
-parser.add_argument('--includeempty', action='store_true', help='Ignore empty files')
+parser.add_argument('--includeempty', action='store_true', help='Include empty files')
 parser.add_argument('--dry', action='store_true', help='Perform a dry run without making any changes')
 parser.add_argument('--skipown', action='store_true', help='Skip files from the first folder')
 parser.add_argument('--makesymlinks', action='store_true', help='Replace duplicate files with symbolic links')
@@ -90,7 +86,7 @@ args = parser.parse_args()
 folders = args.folders
 min_size = args.minsize
 max_size = args.maxsize
-ignore_empty = args.ignoreempty
+include_empty = args.includeempty
 dry_run = args.dry
 skip_own = args.skipown
 make_symlinks = args.makesymlinks
@@ -113,7 +109,7 @@ other_folders_files = []
 
 for folder in folders:
     print(f"Scanning folder: {folder}")
-    folder_files = get_files(folder, min_size, max_size, ignore_empty)
+    folder_files = get_files(folder, min_size, max_size, include_empty)
     print(f"Found {len(folder_files)} files in {folder}")
 
     if folder == folders[0]:
@@ -206,11 +202,14 @@ for hash_value, group_files in hash_to_files.items():
         files_to_remove = [file for file in group_files if file["path"].startswith(folders[0])]
         print("Removing files from the first folder:")
         for file in files_to_remove:
-            remove(file)
-            if make_symlinks:
+            if delete_duplicates:
+                remove(file)
+            elif make_symlinks:
                 create_symlink(other_folder_files[0], file)
             elif make_hardlinks:
                 create_hardlink(other_folder_files[0], file)
+
+            removed_files.append(file)
         continue
 
     # Check if files are only from the first folder
@@ -222,11 +221,14 @@ for hash_value, group_files in hash_to_files.items():
         print("Removing files from the first folder:")
         for file in group_files:
             if file != shortest_filename:
-                remove(file)
+                if delete_duplicates:
+                    remove(file)
                 if make_symlinks:
                     create_symlink(shortest_filename, file)
                 elif make_hardlinks:
                     create_hardlink(shortest_filename, file)
+
+                removed_files.append(file)
         continue
 
 total_removed_size = sum(file["size"] for file in removed_files)
