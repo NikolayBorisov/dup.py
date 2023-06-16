@@ -70,28 +70,28 @@ parser = argparse.ArgumentParser()
 
 # Add the command line arguments
 parser.add_argument('folders', nargs='+', help='List of folders')
-parser.add_argument('--minsize', type=int, help='Minimum file size')
-parser.add_argument('--maxsize', type=int, help='Maximum file size')
-parser.add_argument('--includeempty', action='store_true', help='Include empty files')
+parser.add_argument('--min-size', type=int, help='Minimum file size')
+parser.add_argument('--max-size', type=int, help='Maximum file size')
+parser.add_argument('--include-empty', action='store_true', help='Include empty files')
 parser.add_argument('--dry', action='store_true', help='Perform a dry run without making any changes')
-parser.add_argument('--skipown', action='store_true', help='Skip files from the first folder')
-parser.add_argument('--makesymlinks', action='store_true', help='Replace duplicate files with symbolic links')
-parser.add_argument('--makehardlinks', action='store_true', help='Replace duplicate files with hard links')
-parser.add_argument('--deleteduplicates', action='store_true', help='Delete duplicate files')
+parser.add_argument('--skip-own', action='store_true', help='Skip files from the first folder')
+parser.add_argument('--make-symlinks', action='store_true', help='Replace duplicate files with symbolic links')
+parser.add_argument('--make-hardlinks', action='store_true', help='Replace duplicate files with hard links')
+parser.add_argument('--delete', action='store_true', help='Delete duplicate files')
 
 # Parse the command line arguments
 args = parser.parse_args()
 
 # Extract the values from the arguments
 folders = args.folders
-min_size = args.minsize
-max_size = args.maxsize
-include_empty = args.includeempty
+min_size = args.min_size
+max_size = args.max_size
+include_empty = args.include_empty
 dry_run = args.dry
-skip_own = args.skipown
-make_symlinks = args.makesymlinks
-make_hardlinks = args.makehardlinks
-delete_duplicates = args.deleteduplicates
+skip_own = args.skip_own
+make_symlinks = args.make_symlinks
+make_hardlinks = args.make_hardlinks
+delete = args.delete
 
 # Initialize data structures
 dups = defaultdict(list)
@@ -202,7 +202,7 @@ for hash_value, group_files in hash_to_files.items():
         files_to_remove = [file for file in group_files if file["path"].startswith(folders[0])]
         print("Removing files from the first folder:")
         for file in files_to_remove:
-            if delete_duplicates:
+            if delete:
                 remove(file)
             elif make_symlinks:
                 create_symlink(other_folder_files[0], file)
@@ -221,7 +221,7 @@ for hash_value, group_files in hash_to_files.items():
         print("Removing files from the first folder:")
         for file in group_files:
             if file != shortest_filename:
-                if delete_duplicates:
+                if delete:
                     remove(file)
                 if make_symlinks:
                     create_symlink(shortest_filename, file)
