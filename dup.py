@@ -47,16 +47,16 @@ def get_human_readable_size(size):
         unit += 1
     return f"{size:.2f} {units[unit]}"
 
-def get_files(folder, min_size=None, max_size=None, include_empty=False):
+def get_files(folder, min_size=1, max_size=None, include_empty=False):
     files = []
     for root, dirs, filenames in os.walk(folder):
         for filename in filenames:
             filepath = os.path.join(root, filename)
             if os.path.exists(filepath):
                 size = os.path.getsize(filepath)
-                if not include_empty and size == 0:
+                if not include_empty and size == 0 and min_size > 0:
                     continue
-                if min_size is not None and size < min_size:
+                if size < min_size:
                     continue
                 if max_size is not None and size > max_size:
                     continue
