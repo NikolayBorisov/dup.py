@@ -11,7 +11,7 @@ PART_SIZE = 50
 def remove(file):
     print(f"{file['path']}", end=" ")
     removed_files.append(file)
-    if not dry_run:
+    if not dry_run and delete_duplicates:
         os.remove(file["path"])
         print(f"(removed)")
     else:
@@ -81,6 +81,7 @@ parser.add_argument('--dry', action='store_true', help='Perform a dry run withou
 parser.add_argument('--skipown', action='store_true', help='Skip files from the first folder')
 parser.add_argument('--makesymlinks', action='store_true', help='Replace duplicate files with symbolic links')
 parser.add_argument('--makehardlinks', action='store_true', help='Replace duplicate files with hard links')
+parser.add_argument('--deleteduplicates', action='store_true', help='Delete duplicate files')
 
 # Parse the command line arguments
 args = parser.parse_args()
@@ -94,6 +95,7 @@ dry_run = args.dry
 skip_own = args.skipown
 make_symlinks = args.makesymlinks
 make_hardlinks = args.makehardlinks
+delete_duplicates = args.deleteduplicates
 
 # Initialize data structures
 dups = defaultdict(list)
