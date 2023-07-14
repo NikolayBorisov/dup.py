@@ -12,49 +12,38 @@ import pickle
 from collections import defaultdict
 
 
-def bench_start():
-    if not params.bench:
-        return
-    bench_times.append(datetime.datetime.now())
+class Bench:
+    def __init__(self, enable=True):
+        self.bench_times = []
+        self.enabled = enable
+
+    def start(self):
+        if self.enabled:
+            self.bench_times.append(datetime.datetime.now())
+
+    def stop(self):
+        if not self.enabled or not self.bench_times:
+            return
+        start_time = self.bench_times.pop()
+        end_time = datetime.datetime.now()
+        elapsed_time = end_time - start_time
+
+        if elapsed_time < datetime.timedelta(minutes=1):
+            elapsed_seconds = round(elapsed_time.total_seconds(), 3)
+            print(f"Elapsed time: {elapsed_seconds} seconds")
+        elif elapsed_time < datetime.timedelta(hours=1):
+            elapsed_minutes = elapsed_time.total_seconds() // 60
+            elapsed_seconds = elapsed_time.total_seconds() % 60
+            print(f"Elapsed time: {elapsed_minutes} minutes {elapsed_seconds} seconds")
+        else:
+            elapsed_hours = elapsed_time.total_seconds() // 3600
+            elapsed_minutes = (elapsed_time.total_seconds() % 3600) // 60
+            print(f"Elapsed time: {elapsed_hours} hours {elapsed_minutes} minutes")
 
 
-def bench_stop():
-    if not params.bench or not bench_times:
-        return
-    start_time = bench_times.pop()
-    end_time = datetime.datetime.now()
-    elapsed_time = end_time - start_time
-
-    if elapsed_time < datetime.timedelta(minutes=1):
-        elapsed_seconds = round(elapsed_time.total_seconds(), 3)
-        print(f"Elapsed time: {elapsed_seconds} seconds")
-    elif elapsed_time < datetime.timedelta(hours=1):
-        elapsed_minutes = elapsed_time.total_seconds() // 60
-        elapsed_seconds = elapsed_time.total_seconds() % 60
-        print(f"Elapsed time: {elapsed_minutes} minutes {elapsed_seconds} seconds")
-    else:
-        elapsed_hours = elapsed_time.total_seconds() // 3600
-        elapsed_minutes = (elapsed_time.total_seconds() % 3600) // 60
-        print(f"Elapsed time: {elapsed_hours} hours {elapsed_minutes} minutes")
-
-
-def save_obj_to_temp_file(pkl, obj):
-    temp_dir = tempfile.gettempdir()
-    temp_pkl = os.path.join(temp_dir, pkl)
-    with open(temp_pkl, "wb") as file:
-        pickle.dump(obj, file)
-    return temp_pkl
-
-
-def load_obj_from_file(pkl):
-    temp_dir = tempfile.gettempdir()
-    temp_pkl = os.path.join(temp_dir, pkl)
-    if os.path.isfile(temp_pkl):
-        with open(temp_pkl, "rb") as file:
-            obj = pickle.load(file)
-        return obj
-    else:
-        return None
+#
+# Common utils
+#
 
 
 def parse_size(orig_size_str):
@@ -117,6 +106,25 @@ def format_size(size):
         num += 1
 
     return f"{size:.2f} {size_format[num]}"
+
+
+def save_obj_to_temp_file(pkl, obj):
+    temp_dir = tempfile.gettempdir()
+    temp_pkl = os.path.join(temp_dir, pkl)
+    with open(temp_pkl, "wb") as file:
+        pickle.dump(obj, file)
+    return temp_pkl
+
+
+def load_obj_from_file(pkl):
+    temp_dir = tempfile.gettempdir()
+    temp_pkl = os.path.join(temp_dir, pkl)
+    if os.path.isfile(temp_pkl):
+        with open(temp_pkl, "rb") as file:
+            obj = pickle.load(file)
+        return obj
+    else:
+        return None
 
 
 def format_date(timestamp):
@@ -200,7 +208,7 @@ def collect_all_data(dir_paths):
 
 
 def collect_data(dir_path):
-    bench_start()
+    bench.start()
 
     res_files = {}
     res_dirs = {}
@@ -216,9 +224,9 @@ def collect_data(dir_path):
         "keys": "",
         "base": dir_path,
         "date": int(stat.st_mtime),
-        "node": str(stat.st_dev) + ':' + str(stat.st_ino),
+        "node": str(stat.st_dev) + ":" + str(stat.st_ino),
     }
-    
+
     for root, dirs, files in os.walk(dir_path, followlinks=params.follow_links):
         for name in dirs:
             path = os.path.join(root, name)
@@ -233,7 +241,7 @@ def collect_data(dir_path):
                 "keys": "",
                 "base": dir_path,
                 "date": int(stat.st_mtime),
-                "node": str(stat.st_dev) + ':' + str(stat.st_ino),
+                "node": str(stat.st_dev) + ":" + str(stat.st_ino),
             }
         for name in files:
             path = os.path.join(root, name)
@@ -248,7 +256,7 @@ def collect_data(dir_path):
                     "keys": "",
                     "base": dir_path,
                     "date": int(stat.st_mtime),
-                    "node": str(stat.st_dev) + ':' + str(stat.st_ino),
+                    "node": str(stat.st_dev) + ":" + str(stat.st_ino),
                 }
                 res_dirs[root]["size"] += size
                 res_dirs[root]["flen"] += 1
@@ -262,12 +270,12 @@ def collect_data(dir_path):
         res_dirs[root]["size"] += dir_info["size"]
         res_dirs[root]["dlen"] += 1
 
-    bench_stop()
+    bench.stop()
     return res_dirs, res_files
 
 
 def get_duplicates(func):
-    bench_start()
+    bench.start()
 
     dlen, flen = len(all_dirs), len(all_files)
 
@@ -331,7 +339,7 @@ def get_duplicates(func):
                 if path in all_files:
                     file_dups[keys].append(all_files[path])
 
-    bench_stop()
+    bench.stop()
     print(f"{dlen - len(all_dirs)} dirs and {flen - len(all_files)} files removed")
     print(f"{len(all_dirs)} dirs and {len(all_files)} files left\n")
 
@@ -450,17 +458,17 @@ def action(dup_save, dups_act):
         return False
 
     for dup in dups_act:
-        if os.path.isfile(dup['path']):
-            os.remove(dup['path'])
-        elif os.path.isdir(dup['path']):
-            shutil.rmtree(dup['path'])
+        if os.path.isfile(dup["path"]):
+            os.remove(dup["path"])
+        elif os.path.isdir(dup["path"]):
+            shutil.rmtree(dup["path"])
         else:
-            print("Invalid path:", dup['path'])
+            print("Invalid path:", dup["path"])
 
         if params.symlink:
-            os.symlink(dup_save['path'], dup['path'])
+            os.symlink(dup_save["path"], dup["path"])
         elif params.hardlink:
-            os.link(dup_save['path'], dup['path'])
+            os.link(dup_save["path"], dup["path"])
 
     return True
 
@@ -872,7 +880,7 @@ def init():
 
 params = get_params()
 
-bench_times = []
+bench = Bench(params.bench)
 
 HASH_CACHE_FILE = "dup.py.cache.pkl"
 if not params.no_cache or not params.reset_cache:
