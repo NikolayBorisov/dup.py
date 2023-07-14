@@ -881,8 +881,6 @@ if not params.no_cache or not params.reset_cache:
 if not hash_cache:
     hash_cache = {}
 
-inode_cache = {}
-
 all_dirs, all_files = collect_all_data(params.directories)
 all_roots = get_roots(all_files)
 
