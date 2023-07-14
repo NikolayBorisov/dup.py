@@ -41,11 +41,6 @@ class Bench:
             print(f"Elapsed time: {elapsed_hours} hours {elapsed_minutes} minutes")
 
 
-#
-# Common utils
-#
-
-
 def parse_size(orig_size_str):
     """
     Parses the size string and converts it to bytes.
@@ -756,30 +751,20 @@ def init():
     print(
         "Now eliminating candidates based on "
         + ", ".join(
-            item
-            for item in [
-                check("filename"),
-                check("size"),
-                check("date"),
-            ]
-            if item
+            item for item in [check("filename"), check("size"), check("date")] if item
         )
         + "..."
     )
 
-    def func(file):
-        res_str = "<"
-        if check("filename"):
-            res_str += str(file["name"]) + "/"
-        if check("size"):
-            res_str += str(file["size"]) + "/"
-        if check("date"):
-            res_str += str(file["date"]) + "/"
-        res_str += ">"
-
-        return res_str
-
-    dir_dups, file_dups = get_duplicates(func)
+    dir_dups, file_dups = get_duplicates(
+        lambda file: "<" + (str(file["name"]) + "/")
+        if check("filename")
+        else "" + (str(file["size"]) + "/")
+        if check("size")
+        else "" + (str(file["date"]) + "/")
+        if check("date")
+        else "" + ">"
+    )
 
     if check("firstbytes"):
         print("Now eliminating candidates based on first bytes...")
