@@ -176,13 +176,13 @@ def compact_keys(keys):
     return get_hash(keys) if len(keys) > 1000 else keys
 
 
-def collect_all_data(dir_paths):
+def collect_all_data(dir_paths, followlinks):
     res_dirs, res_files = {}, {}
     all_size = 0
     for dir_path in dir_paths:
         root = os.path.abspath(dir_path)
         print(f"Collecting data for the directory: {dir_path}")
-        new_dirs, new_files = collect_data(root)
+        new_dirs, new_files = collect_data(root, followlinks)
 
         res_dirs.update(new_dirs)
         res_files.update(new_files)
@@ -877,7 +877,7 @@ if not params.no_cache or not params.reset_cache:
 if not hash_cache:
     hash_cache = {}
 
-all_dirs, all_files = collect_all_data(params.directories)
+all_dirs, all_files = collect_all_data(params.directories, params.follow_links)
 all_roots = get_roots(all_files)
 
 init()
