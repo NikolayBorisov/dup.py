@@ -202,7 +202,7 @@ def collect_all_data(dir_paths):
     return res_dirs, res_files
 
 
-def collect_data(dir_path):
+def collect_data(dir_path, followlinks):
     bench.start()
 
     res_files = {}
@@ -222,22 +222,25 @@ def collect_data(dir_path):
         "node": str(stat.st_dev) + ":" + str(stat.st_ino),
     }
 
-    for root, dirs, files in os.walk(dir_path, followlinks=params.follow_links):
+    for root, dirs, files in os.walk(dir_path, followlinks=followlinks):
         for name in dirs:
             path = os.path.join(root, name)
-            stat = os.stat(path)
-            res_dirs[path] = {
-                "path": path,
-                "root": root,
-                "name": name,
-                "size": 0,
-                "flen": 0,
-                "dlen": 0,
-                "keys": "",
-                "base": dir_path,
-                "date": int(stat.st_mtime),
-                "node": str(stat.st_dev) + ":" + str(stat.st_ino),
-            }
+            if os.path.exists(path):
+                stat = os.stat(path)
+                res_dirs[path] = {
+                    "path": path,
+                    "root": root,
+                    "name": name,
+                    "size": 0,
+                    "flen": 0,
+                    "dlen": 0,
+                    "keys": "",
+                    "base": dir_path,
+                    "date": int(stat.st_mtime),
+                    "node": str(stat.st_dev) + ":" + str(stat.st_ino),
+                }
+            else:
+                print(f"Directory {path} not found")
         for name in files:
             path = os.path.join(root, name)
             if os.path.exists(path):
