@@ -1,4 +1,4 @@
-MIT stand for Ukraine License (Modified MIT License)
+Stand with Ukraine License
 
 Copyright (c) 2022 Nikolai Borisov
 
