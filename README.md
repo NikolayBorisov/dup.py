@@ -101,9 +101,9 @@ You can also use the `--ignore` argument to selectively exclude these parameters
 1. **Exclude some properties from a preset**: Suppose you want to use the `data` preset, but ignore the `size` property. You can use the `--ignore` flag for this:
 
     ```bash
-    dup.py /path/to/directory -c data -i size
+    dup.py /path/to/directory -c data -i hash
     ```
-    This will check for duplicates based on `bytes`, `count`, and `hash`, but not `size`.
+    This will check for duplicates based on `bytes`, `count`, and `size`, but not `hash`.
 
 2. **Add additional properties to a preset**: Suppose you want to use the `fast` preset, but also include `hash` in the comparison. You can use the `--check` flag to add `hash`:
 
