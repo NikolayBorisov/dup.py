@@ -579,19 +579,19 @@ def filter_empty():
     Remove all empty directories and/or files if the corresponding parameters
     are set to True.
     """
-    if params.process_empty_dirs and params.process_empty_files:
+    if params.include_empty_dirs and params.include_empty_files:
         return
 
     print("Now remove empty directories and/or files...")
 
     rm_dirs, rm_files = {}, {}
 
-    if not params.files_only and not params.process_empty_dirs:
+    if not params.files_only and not params.include_empty_dirs:
         for dir_path, dir_info in all_dirs.items():
             if dir_info["size"] < 1:
                 rm_dirs[dir_path] = True
 
-    if not params.process_empty_files:
+    if not params.include_empty_files:
         for file_path, file_info in all_files.items():
             if file_info["size"] < 1:
                 rm_files[file_path] = True
@@ -738,12 +738,22 @@ def check(param):
     return param if param in params.check else ""
 
 
-def print_dup_head(dup):
+def print_dup_head(dups):
     """
     Prints the formatted date and size of a duplicate file.
     """
     # `format_date` and `format_size` are assumed to be predefined functions
-    print(format_date(dup["date"]), format_size(dup["size"]))
+
+    dup = dups[0]
+    output = ""
+    output += format_date(dup["date"]) + "  "
+    output += format_size(dup["size"]) + "  "
+    if dup.get("flen"):
+        output += str(dup["dlen"]) + " directories  "
+        output += str(dup["flen"]) + " files  "
+    output += str(len(dups)) + " items"
+
+    print(output)
 
 
 def print_dup_path(dup, sub=False, save=False, is_dir=False):
@@ -798,286 +808,6 @@ def action(dup_save, dups_act):
             os.link(dup_save["path"], dup["path"])
 
     return True
-
-
-def get_params():
-    """
-    Parse and return command-line arguments.
-
-    This function uses the argparse module to handle command-line arguments.
-    The parsed arguments include various options for specifying the directories to scan, how to
-    handle the duplicate files and directories found, and what criteria to use for comparing files
-    and directories.
-
-    Returns:
-        Namespace: A namespace object populated with arguments from the command line.
-    """
-
-    parser = argparse.ArgumentParser(
-        description="Find duplicate directories and files."
-    )
-    parser.add_argument(
-        "directories",
-        metavar="DIR",
-        nargs="*",
-        default=[os.getcwd()],
-        help="Path to the root directory",
-    )
-
-    parser.add_argument(
-        "--bench",
-        action="store_true",
-        help="Perform benchmark for measuring execution time",
-    )
-    parser.add_argument(
-        "--chunk",
-        type=int,
-        default=65536,
-        help="Size of the chunk to check in bytes (default: 65536 bytes)",
-    )
-    parser.add_argument(
-        "--no-cache",
-        action="store_true",
-        help="Disable caching of directory and file information",
-    )
-    parser.add_argument(
-        "--reset-cache",
-        action="store_true",
-        help="Do not use cached directory and file information",
-    )
-
-    parser.add_argument(
-        "--stat",
-        action="store_true",
-        help="Display a brief statistics and do not perform any further action",
-    )
-
-    parser.add_argument(
-        "--no-combine",
-        action="store_true",
-        help="Process all duplicate files and directories without compacting",
-    )
-    parser.add_argument(
-        "--no-combine-dirs",
-        action="store_true",
-        help="Process all duplicate directories without compacting",
-    )
-    parser.add_argument(
-        "--no-combine-files",
-        action="store_true",
-        help="Process all files without hiding them in duplicate directories",
-    )
-
-    parser.add_argument(
-        "--files-only",
-        "-f",
-        action="store_true",
-        dest="files_only",
-        help="Search only for duplicate files and skip directories",
-    )
-    parser.add_argument(
-        "--dirs-only",
-        "-d",
-        action="store_true",
-        dest="dirs_only",
-        help="Search only for duplicate directories",
-    )
-
-    parser.add_argument(
-        "--min-size",
-        type=str,
-        help="Minimum size for files and directories",
-    )
-    parser.add_argument(
-        "--max-size",
-        type=str,
-        help="Maximum size for files and directories",
-    )
-    parser.add_argument(
-        "--min-dir-size",
-        type=str,
-        help="Minimum size for directories",
-    )
-    parser.add_argument(
-        "--max-dir-size",
-        type=str,
-        help="Maximum size for directories",
-    )
-    parser.add_argument(
-        "--min-file-size",
-        type=str,
-        help="Minimum size for files",
-    )
-    parser.add_argument(
-        "--max-file-size",
-        type=str,
-        help="Maximum size for files",
-    )
-
-    parser.add_argument(
-        "--process-empty",
-        action="store_true",
-        help="Process empty directories and files",
-    )
-    parser.add_argument(
-        "--process-empty-dirs",
-        action="store_true",
-        help="Process empty directories",
-    )
-    parser.add_argument(
-        "--process-empty-files",
-        action="store_true",
-        help="Process empty files",
-    )
-
-    parser.add_argument(
-        "--follow-links",
-        action="store_true",
-        help="Allows following symbolic links during directory traversal",
-    )
-
-    parser.add_argument(
-        "--relative-paths",
-        "--rel",
-        action="store_true",
-        dest="relative_paths",
-        help="Display relative paths of directories and files",
-    )
-
-    parser.add_argument(
-        "--exclude",
-        nargs="+",
-        help="Exclude directories and files that match the given patterns",
-    )
-    parser.add_argument(
-        "--exclude-dirs",
-        nargs="+",
-        help="Exclude directories that match the given patterns",
-    )
-    parser.add_argument(
-        "--exclude-files",
-        nargs="+",
-        help="Exclude files that match the given patterns",
-    )
-
-    parser.add_argument(
-        "--symlink",
-        "-S",
-        action="store_true",
-        dest="symlink",
-        help="Replace duplicate files and directories with symbolic links",
-    )
-    parser.add_argument(
-        "--hardlink",
-        "-H",
-        action="store_true",
-        dest="hardlink",
-        help="Replace duplicate files and directories with hard links",
-    )
-    parser.add_argument(
-        "--delete",
-        "-D",
-        action="store_true",
-        dest="delete",
-        help="Delete duplicate files and directories",
-    )
-    # [epic,full,data,fast,tree,
-    #  name,dirname,filename,date,size,bytes,firstbytes,lastbytes,count,dircount,filecount,hash]
-    parser.add_argument(
-        "--check",
-        "-c",
-        type=str,
-        dest="check",
-        help="Specify a set of parameters or presets for comparison",
-    )
-    parser.add_argument(
-        "--ignore",
-        "-i",
-        type=str,
-        dest="ignore",
-        help="Specify a set of parameters or presets to ignore during comparison",
-    )
-
-    args = parser.parse_args()
-
-    if args.check:
-        args.check = set(args.check.lower().split(","))
-    else:
-        args.check = set(["data"])
-
-    if "epic" in args.check:
-        args.check.add("date")
-        args.check.add("full")
-    if "full" in args.check:
-        args.check.add("name")
-        args.check.add("data")
-    if "data" in args.check:
-        args.check.add("size")
-        args.check.add("bytes")
-        args.check.add("count")
-        args.check.add("hash")
-
-    if "fast" in args.check:
-        args.check.add("size")
-        args.check.add("tree")
-    if "tree" in args.check:
-        args.check.add("name")
-        args.check.add("count")
-
-    if "name" in args.check:
-        args.check.add("dirname")
-        args.check.add("filename")
-    if "bytes" in args.check:
-        args.check.add("firstbytes")
-        args.check.add("lastbytes")
-    if "count" in args.check:
-        args.check.add("dircount")
-        args.check.add("filecount")
-
-    if args.ignore:
-        args.ignore = set(args.ignore.lower().split(","))
-
-        if "name" in args.ignore:
-            args.check.discard("dirname")
-            args.check.discard("filename")
-        if "bytes" in args.ignore:
-            args.check.discard("firstbytes")
-            args.check.discard("lastbytes")
-        if "count" in args.ignore:
-            args.check.discard("dircount")
-            args.check.discard("filecount")
-
-        args.check = args.check - args.ignore
-
-    if args.max_size:
-        args.max_file_size = args.max_size
-        args.max_dir_size = args.max_size
-
-    if args.min_size:
-        args.min_file_size = args.min_size
-        args.min_dir_size = args.min_size
-
-    args.min_file_size = parse_size(args.min_file_size) if args.min_file_size else None
-    args.max_file_size = parse_size(args.max_file_size) if args.max_file_size else None
-    args.min_dir_size = parse_size(args.min_dir_size) if args.min_dir_size else None
-    args.max_dir_size = parse_size(args.max_dir_size) if args.max_dir_size else None
-
-    if args.process_empty:
-        args.process_empty_dirs = True
-        args.process_empty_files = True
-
-    if args.no_combine:
-        args.no_combine_files = True
-        args.no_combine_dirs = True
-
-    if args.exclude:
-        args.exclude_dirs = args.exclude_dirs or []
-        args.exclude_dirs.extend(args.exclude)
-
-        args.exclude_files = args.exclude_files or []
-        args.exclude_files.extend(args.exclude)
-
-    return args
 
 
 def get_all_duplicates():
@@ -1193,7 +923,7 @@ def filter_dups_by_size(dups_groups, min_size, max_size):
     return paths_to_remove
 
 
-def process_dir_dups(dups_groups):
+def action_dir_dups(dups_groups):
     """
     Processes the duplicate directory groups.
 
@@ -1214,7 +944,7 @@ def process_dir_dups(dups_groups):
         It also prints out the processing results and may perform filesystem actions based on the global 'action' parameter.
     """
 
-    if params.files_only or (params.stat and params.no_combine_dirs):
+    if params.no_dirs or params.files_only or (params.brief and params.no_combine_dirs):
         return
 
     if not params.no_combine_dirs:
@@ -1222,7 +952,7 @@ def process_dir_dups(dups_groups):
         dups_groups = dirs_join(dups_groups)
         print(f"Now have {len(dups_groups)} groups of duplicate directories")
 
-    if not dups_groups or params.stat:
+    if not dups_groups or params.brief:
         return
 
     if params.min_dir_size is not None or params.max_dir_size is not None:
@@ -1240,10 +970,13 @@ def process_dir_dups(dups_groups):
 
     print("\nDuplicate directories:\n")
     for _, dups in dups_groups.items():
+        if params.dups_dirs_count and params.dups_dirs_count > len(dups):
+            continue
+
         dup_save = dups[0]
         dups_act = []
 
-        print_dup_head(dup_save)
+        print_dup_head(dups)
         print_dup_path(dup_save, sub=False, save=True, is_dir=True)
 
         for dup in dups[1:]:
@@ -1253,7 +986,7 @@ def process_dir_dups(dups_groups):
         action(dup_save, dups_act)
 
 
-def process_file_dups(dups_groups):
+def action_file_dups(dups_groups):
     """
     Processes the duplicate file groups.
 
@@ -1273,7 +1006,7 @@ def process_file_dups(dups_groups):
         It also prints out the processing results and may perform filesystem actions based on the global 'action' parameter.
     """
 
-    if params.dirs_only or not dups_groups or params.stat:
+    if params.no_files or params.dirs_only or not dups_groups or params.brief:
         return
 
     if params.min_file_size is not None or params.max_file_size is not None:
@@ -1282,7 +1015,7 @@ def process_file_dups(dups_groups):
             dups_groups, params.min_file_size, params.max_file_size
         )
         print(
-            f"Removed {dups_groups_len - len(dups_groups)} groups of duplicate files"
+            f"\nRemoved {dups_groups_len - len(dups_groups)} groups of duplicate files"
             + f" contains {len(removed_files)} files due size"
         )
         print(f"Now have {len(dups_groups)} groups of duplicate files")
@@ -1291,6 +1024,9 @@ def process_file_dups(dups_groups):
 
     print("\nDuplicate files:\n")
     for _, dups in dups_groups.items():
+        if params.dups_files_count and params.dups_files_count > len(dups):
+            continue
+
         in_dirs = []
         in_free = []
 
@@ -1308,7 +1044,7 @@ def process_file_dups(dups_groups):
 
         if in_dirs:
             dup_save = in_dirs[0]
-            print_dup_head(dup_save)
+            print_dup_head(dups)
             print_dup_path(dup_save, sub=True, save=True)
 
             for dup in in_dirs[1:]:
@@ -1321,7 +1057,7 @@ def process_file_dups(dups_groups):
                 print_dup_path(dup, sub=False, save=False)
         else:
             dup_save = in_free[0]
-            print_dup_head(dup_save)
+            print_dup_head(dups)
             print_dup_path(dup_save, sub=False, save=True)
 
             for dup in in_free[1:]:
@@ -1329,6 +1065,322 @@ def process_file_dups(dups_groups):
                 print_dup_path(dup, sub=False, save=False)
 
         action(dup_save, dups_act)
+
+
+def get_params():
+    """
+    Parse and return command-line arguments.
+
+    This function uses the argparse module to handle command-line arguments.
+    The parsed arguments include various options for specifying the directories to scan, how to
+    handle the duplicate files and directories found, and what criteria to use for comparing files
+    and directories.
+
+    Returns:
+        Namespace: A namespace object populated with arguments from the command line.
+    """
+
+    parser = argparse.ArgumentParser(
+        description="Find duplicate directories and files."
+    )
+    parser.add_argument(
+        "directories",
+        metavar="DIR",
+        nargs="*",
+        default=[os.getcwd()],
+        help="Path to the root directory",
+    )
+
+    parser.add_argument(
+        "--bench",
+        action="store_true",
+        help="Perform benchmark for measuring execution time",
+    )
+    parser.add_argument(
+        "--chunk",
+        type=int,
+        default=65536,
+        help="Size of the chunk to check in bytes (default: 65536 bytes)",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable caching of directory and file information",
+    )
+    parser.add_argument(
+        "--reset-cache",
+        action="store_true",
+        help="Do not use cached directory and file information",
+    )
+
+    parser.add_argument(
+        "--brief",
+        "-b",
+        action="store_true",
+        dest="brief",
+        help="Display a brief statistics and do not perform any further action",
+    )
+
+    parser.add_argument(
+        "--no-combine",
+        action="store_true",
+        help="Process all duplicate files and directories without compacting",
+    )
+    parser.add_argument(
+        "--no-combine-dirs",
+        action="store_true",
+        help="Process all duplicate directories without compacting",
+    )
+    parser.add_argument(
+        "--no-combine-files",
+        action="store_true",
+        help="Process all files without hiding them in duplicate directories",
+    )
+
+    parser.add_argument(
+        "--dirs-only",
+        "-d",
+        action="store_true",
+        dest="dirs_only",
+        help="Search only for duplicate directories",
+    )
+    parser.add_argument(
+        "--files-only",
+        "-f",
+        action="store_true",
+        dest="files_only",
+        help="Search only for duplicate files and skip directories",
+    )
+
+    parser.add_argument(
+        "--no-dirs",
+        action="store_true",
+        help="Skip directories for output and actions",
+    )
+    parser.add_argument(
+        "--no-files",
+        action="store_true",
+        help="Skip files for output and actions",
+    )
+
+    parser.add_argument(
+        "--min-size",
+        type=str,
+        help="Minimum size for files and directories",
+    )
+    parser.add_argument(
+        "--max-size",
+        type=str,
+        help="Maximum size for files and directories",
+    )
+    parser.add_argument(
+        "--min-dir-size",
+        type=str,
+        help="Minimum size for directories",
+    )
+    parser.add_argument(
+        "--max-dir-size",
+        type=str,
+        help="Maximum size for directories",
+    )
+    parser.add_argument(
+        "--min-file-size",
+        type=str,
+        help="Minimum size for files",
+    )
+    parser.add_argument(
+        "--max-file-size",
+        type=str,
+        help="Maximum size for files",
+    )
+
+    parser.add_argument(
+        "--include-empty",
+        action="store_true",
+        help="Process empty directories and files",
+    )
+    parser.add_argument(
+        "--include-empty-dirs",
+        action="store_true",
+        help="Process empty directories",
+    )
+    parser.add_argument(
+        "--include-empty-files",
+        action="store_true",
+        help="Process empty files",
+    )
+
+    parser.add_argument(
+        "--dups-count",
+        type=int,
+        default=None,
+        help="Колличество дублирующих файлов или директорий в группе",
+    )
+    parser.add_argument(
+        "--dups-dirs-count",
+        type=int,
+        default=None,
+        help="Колличество дублирующих директорий в группе",
+    )
+    parser.add_argument(
+        "--dups-files-count",
+        type=int,
+        default=None,
+        help="Колличество дублирующих файлов в группе",
+    )
+
+    parser.add_argument(
+        "--exclude",
+        nargs="+",
+        help="Exclude directories and files that match the given patterns",
+    )
+    parser.add_argument(
+        "--exclude-dirs",
+        nargs="+",
+        help="Exclude directories that match the given patterns",
+    )
+    parser.add_argument(
+        "--exclude-files",
+        nargs="+",
+        help="Exclude files that match the given patterns",
+    )
+
+    parser.add_argument(
+        "--symlink",
+        "-S",
+        action="store_true",
+        dest="symlink",
+        help="Replace duplicate files and directories with symbolic links",
+    )
+    parser.add_argument(
+        "--hardlink",
+        "-H",
+        action="store_true",
+        dest="hardlink",
+        help="Replace duplicate files and directories with hard links",
+    )
+    parser.add_argument(
+        "--delete",
+        "-D",
+        action="store_true",
+        dest="delete",
+        help="Delete duplicate files and directories",
+    )
+    # [epic,full,data,fast,tree,
+    #  name,dirname,filename,date,size,bytes,firstbytes,lastbytes,count,dircount,filecount,hash]
+    parser.add_argument(
+        "--check",
+        "-c",
+        type=str,
+        dest="check",
+        help="Specify a set of parameters or presets for comparison",
+    )
+    parser.add_argument(
+        "--ignore",
+        "-i",
+        type=str,
+        dest="ignore",
+        help="Specify a set of parameters or presets to ignore during comparison",
+    )
+
+    parser.add_argument(
+        "--follow-links",
+        action="store_true",
+        help="Allows following symbolic links during directory traversal",
+    )
+
+    parser.add_argument(
+        "--relative-paths",
+        "--rel",
+        action="store_true",
+        dest="relative_paths",
+        help="Display relative paths of directories and files",
+    )
+
+    args = parser.parse_args()
+
+    if args.check:
+        args.check = set(args.check.lower().split(","))
+    else:
+        args.check = set(["data"])
+
+    if "epic" in args.check:
+        args.check.add("date")
+        args.check.add("full")
+    if "full" in args.check:
+        args.check.add("name")
+        args.check.add("data")
+    if "data" in args.check:
+        args.check.add("size")
+        args.check.add("bytes")
+        args.check.add("count")
+        args.check.add("hash")
+
+    if "fast" in args.check:
+        args.check.add("size")
+        args.check.add("tree")
+    if "tree" in args.check:
+        args.check.add("name")
+        args.check.add("count")
+
+    if "name" in args.check:
+        args.check.add("dirname")
+        args.check.add("filename")
+    if "bytes" in args.check:
+        args.check.add("firstbytes")
+        args.check.add("lastbytes")
+    if "count" in args.check:
+        args.check.add("dircount")
+        args.check.add("filecount")
+
+    if args.ignore:
+        args.ignore = set(args.ignore.lower().split(","))
+
+        if "name" in args.ignore:
+            args.check.discard("dirname")
+            args.check.discard("filename")
+        if "bytes" in args.ignore:
+            args.check.discard("firstbytes")
+            args.check.discard("lastbytes")
+        if "count" in args.ignore:
+            args.check.discard("dircount")
+            args.check.discard("filecount")
+
+        args.check = args.check - args.ignore
+
+    if args.max_size:
+        args.max_file_size = args.max_size
+        args.max_dir_size = args.max_size
+
+    if args.min_size:
+        args.min_file_size = args.min_size
+        args.min_dir_size = args.min_size
+
+    args.min_file_size = parse_size(args.min_file_size) if args.min_file_size else None
+    args.max_file_size = parse_size(args.max_file_size) if args.max_file_size else None
+    args.min_dir_size = parse_size(args.min_dir_size) if args.min_dir_size else None
+    args.max_dir_size = parse_size(args.max_dir_size) if args.max_dir_size else None
+
+    if args.include_empty:
+        args.include_empty_dirs = True
+        args.include_empty_files = True
+
+    if args.dups_count:
+        args.dups_dirs_count = args.dups_count
+        args.dups_files_count = args.dups_count
+
+    if args.no_combine:
+        args.no_combine_files = True
+        args.no_combine_dirs = True
+
+    if args.exclude:
+        args.exclude_dirs = args.exclude_dirs or []
+        args.exclude_dirs.extend(args.exclude)
+
+        args.exclude_files = args.exclude_files or []
+        args.exclude_files.extend(args.exclude)
+
+    return args
 
 
 params = get_params()
@@ -1347,7 +1399,7 @@ filter_exclude()
 
 dir_dups_groups, file_dups_groups = get_all_duplicates()
 
-process_dir_dups(dir_dups_groups)
-process_file_dups(file_dups_groups)
+action_dir_dups(dir_dups_groups)
+action_file_dups(file_dups_groups)
 
 cache.save()

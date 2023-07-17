@@ -35,35 +35,48 @@ dup.py [directories [directories ...]] [options]
 
 ##### Main
 
-- `directories`: List of directories to scan for duplicate files and directories. If no directories are specified, the current working directory is used.
-- `-c`, `--check CHECK`: Specify a set of parameters or presets for comparison. Can be a combination of [epic,full,data,fast,tree,name,dirname,filename,date,size,bytes,firstbytes,lastbytes,count,dircount,filecount,hash]. You can specify multiple values separated by commas. E.g., `--check size,name`
-- `-i`, `--ignore IGNORE`: Specify a set of parameters or presets to ignore during comparison. Can be a combination of [epic,full,data,fast,tree,name,dirname,filename,date,size,bytes,firstbytes,lastbytes,count,dircount,filecount,hash]. You can specify multiple values separated by commas. E.g., `--ignore date`
+- `directories`: A list of directories to scan for duplicate files and directories. If the directories are not specified, the current working directory is used.
+- `-c CHECK`, `--check CHECK`: Specify a set of parameters or presets for comparison. Can be a combination of [epic,full,data,fast,tree,name,dirname,filename,date,size,bytes,firstbytes,lastbytes,count,dircount,filecount,hash]. You can specify multiple values, separated by commas. For example, `--check size,name`
+- `-i IGNORE`, `--ignore IGNORE`: Specify a set of parameters or presets to ignore when comparing. Can be a combination of [epic,full,data,fast,tree,name,dirname,filename,date,size,bytes,firstbytes,lastbytes,count,dircount,filecount,hash]. You can specify multiple values, separated by commas. For example, `--ignore date`
 
-##### Filters
-
+##### Operating modes
 - `-f`, `--files-only`: Search only for duplicate files and skip directories.
 - `-d`, `--dirs-only`: Search only for duplicate directories.
+
+##### Processing filters
+Pre-filtering for processing.
+- `--include-empty`,
+  `--include-empty-dirs`,
+  `--include-empty-files`: Process empty directories and/or files.
+- `--exclude PATTERNS`,
+  `--exclude-dirs DIR_PATTERNS`,
+  `--exclude-files FILE_PATTERNS`: Exclude directories and files from comparison that match the given patterns. You can use patterns like `*.bak` or `/dir/**`
+
+#### Final processing
+Result filter. These filters are responsible for the final filtering, do not affect the duplicate search process, but affect which files and directories actions will be applied to.
+
+- `-b`, `--brief`: Display brief statistics and perform no further actions.
+- `--no-dirs`: Do not display and apply actions to directories in the end
+- `--no-files`: Do not display and apply actions to files in the end
+- `--dups-count DUPS_COUNT`,
+  `--dups-dirs-count DUPS_DIRS_COUNT`,
+  `--dups-files-count DUPS_FILES_COUNT`: Minimum number of directory and/or file duplicates in a group
 - `--min-size MINSIZE`,
   `--max-size MAXSIZE`,
   `--min-dir-size MIN_DIR_SIZE`,
   `--max-dir-size MAX_DIR_SIZE`,
   `--min-file-size MIN_FILE_SIZE`,
-  `--max-file-size MAX_FILE_SIZE`: These arguments set minimum and maximum sizes for files and directories. Sizes should be specified as a string with a number followed by a unit. E.g., `--min-size 10KB` or `--max-dir-size 2GB`. Be careful when using this filter, as files and directories that do not pass the filter are not considered when comparing, which can lead to the detection of false duplicates, especially in the case of standard comparison with the `--process-empty` parameter, where directory names are not taken into account. All empty directories will be recognized as duplicates, although there may be files and directories inside that did not pass the filter. 
-- `--process-empty`: Process empty directories and files. Essentially, this is the same as `--min-size 0`.
-- `--exclude PATTERNS`,
-  `--exclude-dirs DIR_PATTERNS`,
-  `--exclude-files FILE_PATTERNS`: Exclude directories and files that match the given patterns. Wildcards like `*.bak` or `/dir/**` can be used.
+  `--max-file-size MAX_FILE_SIZE`: These arguments set minimum and maximum sizes for files and directories in the final sample. Sizes should be specified as a string with a number and a unit of measurement. For example, `--min-size 10KB` or `--max-dir-size 2GiB`. This filter does not exclude files and directories from comparison, it only filters the final result
 
 ##### Actions
 
 - `-S`, `--symlink`: Replace duplicate files and directories with symbolic links.
 - `-H`, `--hardlink`: Replace duplicate files and directories with hard links.
-- `-D`, `--delete`: Delete duplicate files and directories.
-- `--stat`: Display a brief statistics and do not perform any further action.
+- `-D`, `--delete`: Delete duplicates of files and directories.
 
 ##### Additional
 
-- `--relative-paths`: Display relative paths of directories and files in the output. Useful for visual control when absolute paths are too long.
+- `--relative-paths`: Display relative paths of directories and files in the output. Convenient for visual control when absolute paths are too long.
 
 ##### Advanced Parameters
 
