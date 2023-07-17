@@ -768,7 +768,7 @@ def print_dup_head(dups, is_dir=False):
         is_dir (bool): A boolean indicating whether the duplicates are directories. If True, the function includes
                        the number of directories and files in the header. If False, it does not. Defaults to False.
     """
-    print_dups_title(is_dir=is_dir)
+    print_dups_title(is_dir)
 
     dup = dups[0]
     output = ""
