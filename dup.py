@@ -746,17 +746,14 @@ def print_dups_title(is_dir):
         is_dir (bool): A boolean indicating whether the duplicates are directories. If True, the function
                        prints the title for duplicate directories. If False, it prints the title for duplicate files.
     """
-    global dirs_title_showed, files_title_showed
-
     if is_dir:
-        if "dirs_title_showed" not in globals():
-            globals()["dirs_title_showed"] = True
+        if not state.get("dirs_title_showed"):
+            state["dirs_title_showed"] = True
             print("\nDuplicate directories:\n")
-
         return
 
-    if "files_title_showed" not in globals():
-        globals()["files_title_showed"] = True
+    if not state.get("files_title_showed"):
+        state["files_title_showed"] = True
         print("\nDuplicate files:\n")
 
 
@@ -1411,6 +1408,7 @@ def get_params():
 
 
 params = get_params()
+state = {}
 
 bench = Bench(params.bench)
 cache = Cache("dup.py.cache.pkl", not params.no_cache)
