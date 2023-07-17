@@ -545,89 +545,120 @@ def get_duplicates(func):
     return dir_dups, file_dups
 
 
-def remove_by_size():
+def post_filter(rm_dirs, rm_files):
     """
-    Remove directories and files based on their size.
+    Remove directories and files that are in the 'rm_dirs' and 'rm_files' lists
+    from the 'all_dirs' and 'all_files' dictionaries respectively.
 
-    This function checks if directories and files are within the specified size range.
-    If they are outside the specified range, they are marked for removal. The removal operation
-    is carried out on the respective collections.
+    Args:
+        rm_dirs (dict): The directories to be removed.
+        rm_files (dict): The files to be removed.
 
     Returns:
-        tuple: Two dictionaries (rm_dirs, rm_files) containing the paths of the directories and files removed.
+        rm_dirs (dict): The directories removed.
+        rm_files (dict): The files removed.
     """
-
-    rm_dirs, rm_files = {}, {}
-
-    # Check if directories are within the specified size range
-    if not params.files_only and (
-        params.min_dir_size is not None or params.max_dir_size is not None
-    ):
-        for dir_path, dir_info in all_dirs.items():
-            if (
-                params.min_dir_size is not None
-                and params.min_dir_size > dir_info["size"]
-            ) or (
-                params.max_dir_size is not None
-                and params.max_dir_size < dir_info["size"]
-            ):
-                rm_dirs[dir_path] = True
-
-    # Check if files are within the specified size range
-    if params.min_file_size is not None or params.max_file_size is not None:
-        for file_path, file_info in all_files.items():
-            if (
-                params.min_file_size is not None
-                and params.min_file_size > file_info["size"]
-            ) or (
-                params.max_file_size is not None
-                and params.max_file_size < file_info["size"]
-            ):
-                rm_files[file_path] = True
-
-    # Remove directories and update rm_files accordingly
-    if not params.files_only and len(rm_dirs):
+    if not params.files_only:
         for dir_path in rm_dirs:
             del all_dirs[dir_path]
             if params.dirs_only:
                 for file_path in all_roots[dir_path]:
                     rm_files[file_path] = True
 
-    # Remove files
-    if len(rm_files):
-        for file_path in rm_files:
-            del all_files[file_path]
+    for file_path in rm_files:
+        del all_files[file_path]
+
+    print(f"{len(rm_dirs)} dirs and {len(rm_files)} files removed")
+    print(f"{len(all_dirs)} dirs and {len(all_files)} files left\n")
 
     return rm_dirs, rm_files
 
 
-def remove_by_exclude(all_data, exclude):
+def filter_empty():
     """
-    Remove directories or files based on the exclusion patterns.
-
-    This function iterates over each path in 'all_data'. If any path matches
-    one of the exclude patterns, it is marked for removal. The removal operation
-    is then carried out on the 'all_data' dictionary.
-
-    Parameters:
-        all_data (dict): A dictionary of all directories or files.
-        exclude (list): A list of patterns to match against for exclusion.
-
-    Returns:
-        list: A list of paths that were removed from 'all_data'.
+    Remove all empty directories and/or files if the corresponding parameters
+    are set to True.
     """
-    to_remove = []
+    if params.process_empty_dirs and params.process_empty_files:
+        return
 
-    # Check each path against each pattern
-    for path in all_data:
-        if any(fnmatch.fnmatch(path, pattern) for pattern in exclude):
-            to_remove.append(path)
+    print("Now remove empty directories and/or files...")
 
-    # Remove the matching paths from 'all_data'
-    for path in to_remove:
-        del all_data[path]
+    rm_dirs, rm_files = {}, {}
 
-    return to_remove
+    if not params.files_only and not params.process_empty_dirs:
+        for dir_path, dir_info in all_dirs.items():
+            if dir_info["size"] < 1:
+                rm_dirs[dir_path] = True
+
+    if not params.process_empty_files:
+        for file_path, file_info in all_files.items():
+            if file_info["size"] < 1:
+                rm_files[file_path] = True
+
+    post_filter(rm_dirs, rm_files)
+
+
+def filter_exclude():
+    """
+    Remove all directories and/or files that do not match the exclude patterns
+    if the corresponding parameters are set to True.
+    """
+    if not params.exclude_dirs and not params.exclude_files:
+        return
+
+    print(
+        "Now remove directories and/or files that do not match the exclude patterns..."
+    )
+
+    rm_dirs, rm_files = {}, {}
+
+    if not params.files_only and params.exclude_dirs:
+        for dir_path, _ in all_dirs.items():
+            if any(
+                fnmatch.fnmatch(dir_path, pattern) for pattern in params.exclude_dirs
+            ):
+                rm_dirs[dir_path] = True
+
+    if params.exclude_files:
+        for file_path, _ in all_files.items():
+            if any(
+                fnmatch.fnmatch(file_path, pattern) for pattern in params.exclude_files
+            ):
+                rm_files[file_path] = True
+
+    post_filter(rm_dirs, rm_files)
+
+
+def filter_files_only():
+    """
+    If the files_only parameter is set to True, remove all files that do not
+    satisfy the file size condition.
+    """
+    if not params.files_only or (
+        params.min_file_size is None and params.max_file_size is None
+    ):
+        return
+
+    print("Now we are deleting files that exceed the allowed size...")
+
+    rm_files = {}
+
+    for file_path, file_info in all_files.items():
+        if (
+            params.min_file_size is not None
+            and params.min_file_size > file_info["size"]
+        ) or (
+            params.max_file_size is not None
+            and params.max_file_size < file_info["size"]
+        ):
+            rm_files[file_path] = True
+
+    for file_path in rm_files:
+        del all_files[file_path]
+
+    print(f"{len(rm_files)} files removed")
+    print(f"{len(all_files)} files left\n")
 
 
 def dirs_join(dir_dups):
@@ -882,11 +913,23 @@ def get_params():
         type=str,
         help="Maximum size for files",
     )
+
     parser.add_argument(
         "--process-empty",
         action="store_true",
         help="Process empty directories and files",
     )
+    parser.add_argument(
+        "--process-empty-dirs",
+        action="store_true",
+        help="Process empty directories",
+    )
+    parser.add_argument(
+        "--process-empty-files",
+        action="store_true",
+        help="Process empty files",
+    )
+
     parser.add_argument(
         "--follow-links",
         action="store_true",
@@ -1014,14 +1057,14 @@ def get_params():
         args.min_file_size = args.min_size
         args.min_dir_size = args.min_size
 
-    args.min_file_size = parse_size(args.min_file_size) if args.min_file_size else 1
+    args.min_file_size = parse_size(args.min_file_size) if args.min_file_size else None
     args.max_file_size = parse_size(args.max_file_size) if args.max_file_size else None
-    args.min_dir_size = parse_size(args.min_dir_size) if args.min_dir_size else 1
+    args.min_dir_size = parse_size(args.min_dir_size) if args.min_dir_size else None
     args.max_dir_size = parse_size(args.max_dir_size) if args.max_dir_size else None
 
     if args.process_empty:
-        args.min_dir_size = None
-        args.min_file_size = None
+        args.process_empty_dirs = True
+        args.process_empty_files = True
 
     if args.no_combine:
         args.no_combine_files = True
@@ -1035,42 +1078,6 @@ def get_params():
         args.exclude_files.extend(args.exclude)
 
     return args
-
-
-def apply_filters():
-    """
-    Apply filters on directories and files based on size and exclusion patterns.
-
-    This function removes directories and files from global `all_dirs` and `all_files`
-    dictionaries that do not meet size requirements or match exclusion patterns defined in
-    global `params`.
-
-    After each filtering operation, the function prints the number of removed directories
-    and files, as well as the number of remaining directories and files.
-    """
-
-    if (
-        params.min_dir_size is not None
-        or params.max_dir_size is not None
-        or params.min_file_size is not None
-        or params.max_file_size is not None
-    ):
-        rm_dirs, rm_files = remove_by_size()
-        print(
-            f"Removed {len(rm_dirs)} directories and {len(rm_files)} files from list"
-            + " that don't fit the size requirement"
-        )
-        print(f"{len(all_dirs)} dirs and {len(all_files)} files left\n")
-
-    if params.exclude:
-        rm_dirs = remove_by_exclude(all_dirs, params.exclude_dirs)
-        rm_files = remove_by_exclude(all_files, params.exclude_files)
-
-        print(
-            f"Removed {len(rm_dirs)} directories and {len(rm_files)} files from list"
-            + " that do not match the exclude patterns"
-        )
-        print(f"{len(all_dirs)} dirs and {len(all_files)} files left\n")
 
 
 def get_all_duplicates():
@@ -1097,21 +1104,22 @@ def get_all_duplicates():
         which are duplicates of each other.
     """
 
-    print(
-        "Now eliminating candidates based on "
-        + ", ".join(filter(None, map(check, ["filename", "size", "date"])))
-        + "..."
-    )
+    if check("filename") or check("size") or check("date"):
+        print(
+            "Now eliminating candidates based on "
+            + ", ".join(filter(None, map(check, ["filename", "size", "date"])))
+            + "..."
+        )
 
-    dir_dups, file_dups = get_duplicates(
-        lambda file: "<" + (str(file["name"]) + "/")
-        if check("filename")
-        else "" + (str(file["size"]) + "/")
-        if check("size")
-        else "" + (str(file["date"]) + "/")
-        if check("date")
-        else "" + ">"
-    )
+        dir_dups, file_dups = get_duplicates(
+            lambda file: "<" + (str(file["name"]) + "/")
+            if check("filename")
+            else "" + (str(file["size"]) + "/")
+            if check("size")
+            else "" + (str(file["date"]) + "/")
+            if check("date")
+            else "" + ">"
+        )
 
     if check("firstbytes"):
         print("Now eliminating candidates based on first bytes...")
@@ -1142,46 +1150,96 @@ def get_all_duplicates():
     return dir_dups, file_dups
 
 
-def process_dir_dups(dups_groups):
+def filter_dups_by_size(dups_groups, min_size, max_size):
     """
-    Process duplicate directories.
-
-    This function first checks if only duplicate files are to be found or
-    if it is in statistics mode and the directories are not to be combined.
-    If either of the conditions is True, the function returns without any processing.
-
-    The function then combines the directories if the corresponding parameter
-    is set in the global `params`. It then prints the number of groups of duplicate
-    directories.
-
-    The function then checks if there are no final duplicates or if it is in
-    statistics mode. If either of the conditions is True, the function returns
-    without any further processing.
-
-    Finally, the function prints the duplicate directories and calls the `action`
-    function on them to perform the specified action (delete, replace with symbolic link, etc.).
+    Filter out duplicate groups based on the size constraints provided.
 
     Args:
-        dups_groups (dict): A dictionary containing groups of duplicate directories.
-        The key is a string which is a common characteristic based on which
-        duplicates were found, and the value is a list of directories which are duplicates of each other.
+        dups_groups (dict): The dictionary containing duplicate groups. The keys
+            represent group identifiers and the values are lists of dictionaries
+            containing the duplicate files' information.
+        min_size (int or None): The minimum size of the files to be considered.
+            If a file size is smaller than min_size, its group will be removed
+            from dups_groups. If None, no minimum size filtering will be applied.
+        max_size (int or None): The maximum size of the files to be considered.
+            If a file size is larger than max_size, its group will be removed
+            from dups_groups. If None, no maximum size filtering will be applied.
+
+    Returns:
+        list: A list of paths (strings) for files that were removed from dups_groups.
+
+    Note:
+        This function modifies the dups_groups dictionary in-place, removing any
+        groups that do not satisfy the size constraints.
+    """
+    if not dups_groups or (min_size is None and max_size is None):
+        return
+
+    dups_to_remove = []
+    paths_to_remove = []
+
+    for keys, dups in dups_groups.items():
+        dup = dups[0]
+        if (min_size is not None and min_size > dup["size"]) or (
+            max_size is not None and max_size < dup["size"]
+        ):
+            dups_to_remove.append(keys)
+            for dup in dups:
+                paths_to_remove.append(dup["path"])
+
+    for keys in dups_to_remove:
+        del dups_groups[keys]
+
+    return paths_to_remove
+
+
+def process_dir_dups(dups_groups):
+    """
+    Processes the duplicate directory groups.
+
+    This function performs several operations on the provided groups of duplicate directories:
+    1. If the global parameters 'files_only', 'stat' and 'no_combine_dirs' are set,
+       it simply returns, performing no operations.
+    2. It optionally compacts the directory groups based on the 'no_combine_dirs' parameter.
+    3. It filters out groups of directories that do not fall within the specified size limits.
+    4. Finally, for each remaining group of duplicates, it selects a 'save' directory,
+       performs an action on it and prints the results.
+
+    Args:
+        dups_groups (dict): A dictionary mapping a unique identifier to each group of duplicate directories.
+                            Each group is a list of dictionaries containing directory information.
+
+    Side effects:
+        This function directly modifies the provided 'dups_groups' dictionary, potentially removing some keys.
+        It also prints out the processing results and may perform filesystem actions based on the global 'action' parameter.
     """
 
     if params.files_only or (params.stat and params.no_combine_dirs):
         return
 
-    final_dups_groups = dups_groups
-
     if not params.no_combine_dirs:
         print(f"Compacting {len(dups_groups)} groups of directories...")
-        final_dups_groups = dirs_join(dups_groups)
-        print(f"Now have {len(final_dups_groups)} groups of duplicate directories\n")
+        dups_groups = dirs_join(dups_groups)
+        print(f"Now have {len(dups_groups)} groups of duplicate directories")
 
-    if not final_dups_groups or params.stat:
+    if not dups_groups or params.stat:
         return
 
-    print("\n\nDuplicate directories:\n\n")
-    for _, dups in final_dups_groups.items():
+    if params.min_dir_size is not None or params.max_dir_size is not None:
+        dups_groups_len = len(dups_groups)
+        removed_dirs = filter_dups_by_size(
+            dups_groups, params.min_dir_size, params.max_dir_size
+        )
+        print(
+            f"Removed {dups_groups_len - len(dups_groups)} groups of duplicate directories"
+            + f" contains {len(removed_dirs)} directories due size"
+        )
+        print(f"Now have {len(dups_groups)} groups of duplicate directories")
+        if not dups_groups:
+            return
+
+    print("\nDuplicate directories:\n")
+    for _, dups in dups_groups.items():
         dup_save = dups[0]
         dups_act = []
 
@@ -1197,31 +1255,41 @@ def process_dir_dups(dups_groups):
 
 def process_file_dups(dups_groups):
     """
-    Process duplicate files.
+    Processes the duplicate file groups.
 
-    This function first checks if only duplicate directories are to be found,
-    if there are no duplicate files, or if it is in statistics mode.
-    If any of these conditions is True, the function returns without any processing.
-
-    The function then divides the duplicate files into two categories: those
-    that are part of the directories already processed, and those that are not.
-
-    If there are no files in either category and the corresponding parameters are
-    set in the global `params`, the function returns without any processing.
-
-    Finally, the function prints the duplicate files and calls the `action`
-    function on them to perform the specified action (delete, replace with symbolic link, etc.).
+    This function performs several operations on the provided groups of duplicate files:
+    1. If the global parameters 'dirs_only', 'stat' are set or no groups are provided,
+       it simply returns, performing no operations.
+    2. It filters out groups of files that do not fall within the specified size limits.
+    3. Finally, for each remaining group of duplicates, it selects a 'save' file,
+       performs an action on it and prints the results.
 
     Args:
-        dups_groups (dict): A dictionary containing groups of duplicate files.
-        The key is a string which is a common characteristic based on which
-        duplicates were found, and the value is a list of files which are duplicates of each other.
+        dups_groups (dict): A dictionary mapping a unique identifier to each group of duplicate files.
+                            Each group is a list of dictionaries containing file information.
+
+    Side effects:
+        This function directly modifies the provided 'dups_groups' dictionary, potentially removing some keys.
+        It also prints out the processing results and may perform filesystem actions based on the global 'action' parameter.
     """
 
     if params.dirs_only or not dups_groups or params.stat:
         return
 
-    print("\n\nDuplicate files:\n\n")
+    if params.min_file_size is not None or params.max_file_size is not None:
+        dups_groups_len = len(dups_groups)
+        removed_files = filter_dups_by_size(
+            dups_groups, params.min_file_size, params.max_file_size
+        )
+        print(
+            f"Removed {dups_groups_len - len(dups_groups)} groups of duplicate files"
+            + f" contains {len(removed_files)} files due size"
+        )
+        print(f"Now have {len(dups_groups)} groups of duplicate files")
+        if not dups_groups:
+            return
+
+    print("\nDuplicate files:\n")
     for _, dups in dups_groups.items():
         in_dirs = []
         in_free = []
@@ -1232,7 +1300,7 @@ def process_file_dups(dups_groups):
         else:
             in_free = dups
 
-        if not(in_free or params.no_combine_files or params.files_only):
+        if not (in_free or params.no_combine_files or params.files_only):
             continue
 
         dup_save = None
@@ -1273,7 +1341,9 @@ if not params.reset_cache:
 all_dirs, all_files = collect_all_data(params.directories, params.follow_links)
 all_roots = get_roots(all_files)
 
-apply_filters()
+filter_empty()
+filter_files_only()
+filter_exclude()
 
 dir_dups_groups, file_dups_groups = get_all_duplicates()
 
