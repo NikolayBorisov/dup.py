@@ -134,6 +134,14 @@ You can also use the `--ignore` argument to selectively exclude these parameters
 
 Remember that the `-c` and `-i` flags can accept a comma-separated list of properties or presets to include or exclude respectively.
 
+## Examples
+
+Find all files and directories with the same name that are duplicated at least five times and have a size of at least 1GiB. Display the execution timings and paths in relative format:
+
+```bash
+dup.py --bench --dups-count 5 --min-size 1GiB -c name --rel
+```
+
 ## Notes
 
 Use this tool with caution, especially when using the `--delete`, `--symlink`, or `--hardlink` flags as it permanently deletes files. Always review the list of duplicate files before performing any deletion actions. Make sure you have a backup of all important data. Use the `-f` or `-d` options to limit the search to files or directories respectively. Experiment with different flag combinations to tailor it to your specific use case.

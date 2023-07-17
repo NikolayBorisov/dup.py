@@ -738,17 +738,46 @@ def check(param):
     return param if param in params.check else ""
 
 
-def print_dup_head(dups):
+def print_dups_title(is_dir):
     """
-    Prints the formatted date and size of a duplicate file.
+    Prints the title of a section of duplicate directories or files, ensuring the title is only printed once.
+
+    Args:
+        is_dir (bool): A boolean indicating whether the duplicates are directories. If True, the function
+                       prints the title for duplicate directories. If False, it prints the title for duplicate files.
     """
-    # `format_date` and `format_size` are assumed to be predefined functions
+    global dirs_title_showed, files_title_showed
+
+    if is_dir:
+        if "dirs_title_showed" not in globals():
+            globals()["dirs_title_showed"] = True
+            print("\nDuplicate directories:\n")
+
+        return
+
+    if "files_title_showed" not in globals():
+        globals()["files_title_showed"] = True
+        print("\nDuplicate files:\n")
+
+
+def print_dup_head(dups, is_dir=False):
+    """
+    Prints the header for a set of duplicate directories or files. This header contains the date, size, number
+    of directories, number of files, and total number of items for the first item in the list of duplicates.
+
+    Args:
+        dups (list): A list of duplicate items (directories or files). The information of the first item in this
+                     list is used to generate the header.
+        is_dir (bool): A boolean indicating whether the duplicates are directories. If True, the function includes
+                       the number of directories and files in the header. If False, it does not. Defaults to False.
+    """
+    print_dups_title(is_dir=is_dir)
 
     dup = dups[0]
     output = ""
     output += format_date(dup["date"]) + "  "
     output += format_size(dup["size"]) + "  "
-    if dup.get("flen"):
+    if is_dir:
         output += str(dup["dlen"]) + " directories  "
         output += str(dup["flen"]) + " files  "
     output += str(len(dups)) + " items"
@@ -968,7 +997,6 @@ def action_dir_dups(dups_groups):
         if not dups_groups:
             return
 
-    print("\nDuplicate directories:\n")
     for _, dups in dups_groups.items():
         if params.dups_dirs_count and params.dups_dirs_count > len(dups):
             continue
@@ -976,7 +1004,7 @@ def action_dir_dups(dups_groups):
         dup_save = dups[0]
         dups_act = []
 
-        print_dup_head(dups)
+        print_dup_head(dups, is_dir=True)
         print_dup_path(dup_save, sub=False, save=True, is_dir=True)
 
         for dup in dups[1:]:
@@ -1022,7 +1050,6 @@ def action_file_dups(dups_groups):
         if not dups_groups:
             return
 
-    print("\nDuplicate files:\n")
     for _, dups in dups_groups.items():
         if params.dups_files_count and params.dups_files_count > len(dups):
             continue
@@ -1044,7 +1071,7 @@ def action_file_dups(dups_groups):
 
         if in_dirs:
             dup_save = in_dirs[0]
-            print_dup_head(dups)
+            print_dup_head(dups, is_dir=False)
             print_dup_path(dup_save, sub=True, save=True)
 
             for dup in in_dirs[1:]:
@@ -1057,7 +1084,7 @@ def action_file_dups(dups_groups):
                 print_dup_path(dup, sub=False, save=False)
         else:
             dup_save = in_free[0]
-            print_dup_head(dups)
+            print_dup_head(dups, is_dir=False)
             print_dup_path(dup_save, sub=False, save=True)
 
             for dup in in_free[1:]:
