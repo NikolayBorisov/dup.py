@@ -7,7 +7,6 @@ import hashlib
 import os
 import fnmatch
 import shutil
-import sys
 import tempfile
 import pickle
 from collections import defaultdict
@@ -1491,7 +1490,7 @@ def main():
         res_file_dups_groups = filter_file_dups_groups(file_dups_groups, all_dirs)
 
     if params.brief:
-        sys.exit()
+        return
 
     if not params.no_dirs and not params.files_only:
         output_dups_groups(res_dir_dups_groups, rel=params.relative_paths, is_dir=True)
