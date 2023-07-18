@@ -434,7 +434,7 @@ def collect_all_data(dir_paths, followlinks):
     return res_dirs, res_files
 
 
-def remove_unique(root):
+def remove_unique(root, all_dirs, all_files, all_roots):
     """
     Recursively remove unique directories from the list of directories. The function modifies the
     global variables 'all_dirs', 'all_files', and 'all_roots' in-place.
@@ -456,7 +456,7 @@ def remove_unique(root):
         root = next_root  # Update the root directory for the next iteration
 
 
-def get_duplicates(func):
+def get_duplicates(func, all_dirs, all_files, all_roots):
     """
     Retrieve directories and files that are duplicates using a function for comparison.
 
@@ -506,7 +506,7 @@ def get_duplicates(func):
             if root:
                 del all_files[path]
                 if not params.files_only:
-                    remove_unique(root)
+                    remove_unique(root, all_dirs, all_files, all_roots)
         elif not params.files_only:
             for path in paths:
                 root = all_files.get(path, {}).get("root")
@@ -526,7 +526,7 @@ def get_duplicates(func):
 
         for keys, paths in dir_keys_paths.items():
             if len(paths) == 1:
-                remove_unique(paths[0])
+                remove_unique(paths[0], all_dirs, all_files, all_roots)
             else:
                 for path in paths:
                     if path in all_dirs:
@@ -546,7 +546,7 @@ def get_duplicates(func):
     return dir_dups, file_dups
 
 
-def get_all_duplicates():
+def get_all_duplicates(all_dirs, all_files, all_roots):
     """
     Find all duplicate directories and files based on various checks.
 
@@ -584,7 +584,10 @@ def get_all_duplicates():
             if check("size")
             else "" + (str(file["date"]) + "/")
             if check("date")
-            else "" + ">"
+            else "" + ">",
+            all_dirs,
+            all_files,
+            all_roots,
         )
 
     if check("firstbytes"):
@@ -593,7 +596,10 @@ def get_all_duplicates():
         dir_dups, file_dups = get_duplicates(
             lambda file: get_file_hash(file, None, params.chunk)
             if file["size"] > params.chunk
-            else get_file_hash(file)
+            else get_file_hash(file),
+            all_dirs,
+            all_files,
+            all_roots,
         )
         cache.save()
 
@@ -602,14 +608,20 @@ def get_all_duplicates():
         dir_dups, file_dups = get_duplicates(
             lambda file: get_file_hash(file, -params.chunk)
             if file["size"] > params.chunk * 2
-            else None
+            else None,
+            all_dirs,
+            all_files,
+            all_roots,
         )
         cache.save()
 
     if check("hash"):
         print("Now eliminating candidates based on hash...")
         dir_dups, file_dups = get_duplicates(
-            lambda file: get_file_hash(file) if file["size"] > params.chunk else None
+            lambda file: get_file_hash(file) if file["size"] > params.chunk else None,
+            all_dirs,
+            all_files,
+            all_roots,
         )
         cache.save()
 
@@ -620,7 +632,7 @@ def get_all_duplicates():
     return dir_dups, file_dups
 
 
-def post_filter(rm_dirs, rm_files):
+def post_filter(rm_dirs, rm_files, all_dirs, all_files, all_roots):
     """
     Remove directories and files that are in the 'rm_dirs' and 'rm_files' lists
     from the 'all_dirs' and 'all_files' dictionaries respectively.
@@ -649,7 +661,7 @@ def post_filter(rm_dirs, rm_files):
     return rm_dirs, rm_files
 
 
-def filter_empty():
+def filter_empty(all_dirs, all_files, all_roots):
     """
     Filters out empty directories and/or files based on user preference.
     If the 'include_empty_dirs' or 'include_empty_files' parameters are False, the function
@@ -676,10 +688,10 @@ def filter_empty():
             if file_info["size"] < 1:
                 rm_files[file_path] = True
 
-    post_filter(rm_dirs, rm_files)
+    post_filter(rm_dirs, rm_files, all_dirs, all_files, all_roots)
 
 
-def filter_exclude():
+def filter_exclude(all_dirs, all_files, all_roots):
     """
     Filters out directories and/or files that match the specified exclude patterns.
     The function first checks if there are any exclude patterns for directories or files.
@@ -712,10 +724,10 @@ def filter_exclude():
             ):
                 rm_files[file_path] = True
 
-    post_filter(rm_dirs, rm_files)
+    post_filter(rm_dirs, rm_files, all_dirs, all_files, all_roots)
 
 
-def filter_files_only():
+def filter_files_only(all_files):
     """
     Filters out files that don't fit within the specified minimum and maximum file size if the files_only parameter is True.
     Prints the number of files that are removed and the number of files that are left after the removal.
@@ -749,7 +761,7 @@ def filter_files_only():
     print(f"{len(all_files)} files left\n")
 
 
-def filter_subdirs(dir_dups):
+def filter_subdirs(dir_dups, all_dirs):
     """
     Join duplicate directories based on their root keys.
 
@@ -867,7 +879,7 @@ def filter_dups_groups(dups_groups, func):
     return to_remove
 
 
-def filter_dir_dups_groups(dups_groups):
+def filter_dir_dups_groups(dups_groups, all_dirs):
     """
     Filters duplicate directory groups based on specified criteria such as minimum and maximum size,
     count of duplicates, and whether to combine directories or not.
@@ -920,7 +932,7 @@ def filter_dir_dups_groups(dups_groups):
 
     if not params.no_combine_dirs:
         print("Compacting groups of directories...")
-        removed = filter_subdirs(dups_groups)
+        removed = filter_subdirs(dups_groups, all_dirs)
         print_groups_summary(len(removed), len(dups_groups))
 
     if not dups_groups:
@@ -935,7 +947,7 @@ def filter_dir_dups_groups(dups_groups):
     return res_dups_groups
 
 
-def filter_file_dups_groups(dups_groups):
+def filter_file_dups_groups(dups_groups, all_dirs):
     """
     Filters duplicate file groups based on specified criteria such as minimum and maximum size,
     count of duplicates, and whether to combine files or not.
@@ -1062,6 +1074,7 @@ def output_dups_groups(dups_groups, rel=False, is_dir=False):
         is_dir (bool, optional): If True, the function outputs details about duplicate directories.
                                  If False, it outputs details about duplicate files. Defaults to False.
     """
+
     if not dups_groups:
         return
 
@@ -1111,6 +1124,7 @@ def action_dups_groups(dups_groups):
         bool: True if the operation was successful, False otherwise.
               Returns False if the dups_groups is empty or no action is specified in the command line parameters.
     """
+
     if not dups_groups or not (params.symlink or params.hardlink or params.delete):
         return False
 
@@ -1448,36 +1462,51 @@ def get_params():
     return args
 
 
-params = get_params()
-state = {}
+def main():
+    """
+    The main function for the script. It orchestrates the flow of operations, starting from loading the cache,
+    collecting all data, applying various filters, getting all duplicates, filtering duplicate groups,
+    and finally outputting and taking action on the duplicates. It also handles conditionals like whether
+    directories/files should be excluded and if it should be in brief mode or not.
+    """
 
+    if not params.reset_cache:
+        cache.load()
+
+    all_dirs, all_files = collect_all_data(params.directories, params.follow_links)
+    all_roots = get_roots(all_files)
+
+    filter_empty(all_dirs, all_files, all_roots)
+    filter_files_only(all_files)
+    filter_exclude(all_dirs, all_files, all_roots)
+
+    dir_dups_groups, file_dups_groups = get_all_duplicates(
+        all_dirs, all_files, all_roots
+    )
+
+    if not params.files_only:
+        res_dir_dups_groups = filter_dir_dups_groups(dir_dups_groups, all_dirs)
+
+    if not params.dirs_only:
+        res_file_dups_groups = filter_file_dups_groups(file_dups_groups, all_dirs)
+
+    if params.brief:
+        sys.exit()
+
+    if not params.no_dirs and not params.files_only:
+        output_dups_groups(res_dir_dups_groups, rel=params.relative_paths, is_dir=True)
+        action_dups_groups(res_dir_dups_groups)
+
+    if not params.no_files and not params.dirs_only:
+        output_dups_groups(
+            res_file_dups_groups, rel=params.relative_paths, is_dir=False
+        )
+        action_dups_groups(res_file_dups_groups)
+
+
+state = {}
+params = get_params()
 bench = Bench(params.bench)
 cache = Cache("dup.py.cache.pkl", not params.no_cache)
-if not params.reset_cache:
-    cache.load()
 
-all_dirs, all_files = collect_all_data(params.directories, params.follow_links)
-all_roots = get_roots(all_files)
-
-filter_empty()
-filter_files_only()
-filter_exclude()
-
-dir_dups_groups, file_dups_groups = get_all_duplicates()
-
-if not params.files_only:
-    res_dir_dups_groups = filter_dir_dups_groups(dir_dups_groups)
-
-if not params.dirs_only:
-    res_file_dups_groups = filter_file_dups_groups(file_dups_groups)
-
-if params.brief:
-    sys.exit()
-
-if not params.no_dirs and not params.files_only:
-    output_dups_groups(res_dir_dups_groups, rel=params.relative_paths, is_dir=True)
-    action_dups_groups(res_dir_dups_groups)
-
-if not params.no_files and not params.dirs_only:
-    output_dups_groups(res_file_dups_groups, rel=params.relative_paths, is_dir=False)
-    action_dups_groups(res_file_dups_groups)
+main()
