@@ -1088,7 +1088,6 @@ def output_dups_groups(dups_groups, rel=False, is_dir=False):
         res += format_date(dup["date"]) + "  "
         res += format_size(dup["size"]) + "  "
         if is_dir:
-            print(is_dir)
             res += str(dup["dlen"]) + " directories  "
             res += str(dup["flen"]) + " files  "
         res += str(len(dups)) + " items"
