@@ -317,7 +317,7 @@ def collect_data(dir_path, followlinks):
     bench.start()
 
     res_files = {}
-    res_dirs = {}
+    res_dirs = defaultdict(dict)
 
     stat = os.stat(dir_path)
 
@@ -336,55 +336,47 @@ def collect_data(dir_path, followlinks):
     }
 
     # Use os.walk to traverse the directory tree
-    for root, dirs, files in os.walk(dir_path, followlinks=followlinks):
-        dirs.sort(reverse=True)
-        files.sort(reverse=True)
+    for root, dirs, files in os.walk(dir_path, followlinks=followlinks, topdown=False):
 
         for name in dirs:
             path = os.path.join(root, name)
-            if os.path.exists(path):
-                stat = os.stat(path)
-                res_dirs[path] = {
-                    "path": path,
-                    "root": root,
-                    "name": name,
-                    "size": 0,
-                    "flen": 0,
-                    "dlen": 0,
-                    "keys": "",
-                    "base": dir_path,
-                    "date": int(stat.st_mtime),
-                    "node": str(stat.st_dev) + ":" + str(stat.st_ino),
-                }
-            else:
-                print(f"Directory {path} not found")
+            stat = os.stat(path)
+
+            res_dir = {
+                "path": path,
+                "root": root,
+                "name": name,
+                "size": 0,
+                "flen": 0,
+                "dlen": 0,
+                "keys": "",
+                "base": dir_path,
+                "date": int(stat.st_mtime),
+                "node": str(stat.st_dev) + ":" + str(stat.st_ino),
+            }
+            res_dir.update(res_dirs.get(path, {}))
+            res_dirs[path] = res_dir
+
+            res_dirs[root]["size"] = (
+                res_dirs[root].get("size", 0) + res_dirs[path]["size"]
+            )
+            res_dirs[root]["dlen"] = res_dirs[root].get("dlen", 0) + 1
         for name in files:
             path = os.path.join(root, name)
-            if os.path.exists(path):
-                stat = os.stat(path)
-                size = stat.st_size
-                res_files[path] = {
-                    "path": path,
-                    "root": root,
-                    "name": name,
-                    "size": size,
-                    "keys": "",
-                    "base": dir_path,
-                    "date": int(stat.st_mtime),
-                    "node": str(stat.st_dev) + ":" + str(stat.st_ino),
-                }
-                res_dirs[root]["size"] += size
-                res_dirs[root]["flen"] += 1
-            else:
-                print(f"File {path} not found")
-
-    # Update parent directories with the aggregated sizes and counts of their children
-    for _, dir_info in sorted(res_dirs.items(), reverse=True):
-        root = dir_info["root"]
-        if not root:
-            continue
-        res_dirs[root]["size"] += dir_info["size"]
-        res_dirs[root]["dlen"] += 1
+            stat = os.stat(path)
+            size = stat.st_size
+            res_files[path] = {
+                "path": path,
+                "root": root,
+                "name": name,
+                "size": size,
+                "keys": "",
+                "base": dir_path,
+                "date": int(stat.st_mtime),
+                "node": str(stat.st_dev) + ":" + str(stat.st_ino),
+            }
+            res_dirs[root]["size"] = res_dirs[root].get("size", 0) + size
+            res_dirs[root]["flen"] = res_dirs[root].get("flen", 0) + 1
 
     # Stop timing the operation for benchmarking
     bench.stop()
@@ -910,6 +902,11 @@ def filter_dir_dups_groups(dups_groups, all_dirs):
     if not dups_groups:
         return
 
+    if not params.no_combine_dirs:
+        print("Compacting groups of directories...")
+        removed = filter_subdirs(dups_groups, all_dirs)
+        print_groups_summary(len(removed), len(dups_groups))
+
     if params.dups_dirs_count:
         print("Filtering groups by dups count in group...")
         removed = filter_dups_groups(
@@ -930,11 +927,6 @@ def filter_dir_dups_groups(dups_groups, all_dirs):
                 and params.max_dir_size < dups[0]["size"]
             ),
         )
-        print_groups_summary(len(removed), len(dups_groups))
-
-    if not params.no_combine_dirs:
-        print("Compacting groups of directories...")
-        removed = filter_subdirs(dups_groups, all_dirs)
         print_groups_summary(len(removed), len(dups_groups))
 
     if not dups_groups:
