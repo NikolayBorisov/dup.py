@@ -337,6 +337,9 @@ def collect_data(dir_path, followlinks):
 
     # Use os.walk to traverse the directory tree
     for root, dirs, files in os.walk(dir_path, followlinks=followlinks, topdown=False):
+        # TODO: More sort functions
+        files.sort(reverse=True)
+        dirs.sort(reverse=True)
 
         for name in dirs:
             path = os.path.join(root, name)
